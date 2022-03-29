@@ -38,7 +38,7 @@ class Maze:
         self.current_level = None
         self.levels = {}
 
-        # Render current layout
+    # Render current layout
     def get_layout(self):
         current_layout = []
         for n in range(0, self.size):

@@ -15,7 +15,7 @@ class Block:
             self.symbol = 'X'
 
         if self.unit_type == 'Floor':
-            self.barrier = False
+            self.barrier = True
             self.symbol = '-'
 
         if self.unit_type == 'Room':
@@ -107,6 +107,17 @@ class Maze:
                         self.levels[last_level+1] = []
                         self.levels[last_level+1].append(new_room)
 
+        '''
+        def create_passages(self):
+            for level in self.levels.values():
+                connected_rooms = []
+                unconnected_rooms = []
+                for room in level:
+                    unconnected_rooms.append(room)
+                while len(unconnected_rooms) > 0:
+                    start_room = random.randrange(0, len(unconnected_rooms)) 
+       '''         
+
 class Room:
 
     def __init__(self, length, x_min, y_min):
@@ -116,13 +127,18 @@ class Room:
         self.y_min = y_min
         self.y_max = self.y_min + self.side_length
 
+class Passage:
+
+    def __init__(self, start_coords, end_coords):
+        pass
+
 
 class Player:
     
     def __init__(self):
         self.symbol = 'O'
-        self.x_coord = 15
-        self.y_coord = 15
+        self.x_coord = None
+        self.y_coord = None
 
 
 if __name__ == "__main__":
@@ -131,15 +147,31 @@ if __name__ == "__main__":
     final_maze.create_rooms()
     final_maze.current_level = 0
 
+    
+
     player_1 = Player()
     print(final_maze.levels)
 
     playing = True
+    initialize_player = True
     while playing:
         
         os.system('clear')
 
         current_layout = final_maze.get_layout()
+        
+        # Start player in room
+        while initialize_player:
+            for row in range(0, len(current_layout)):
+                for item in range(0, len(current_layout[row])):
+                    if current_layout[row][item].symbol == '#':
+                        player_1.x_coord = item
+                        player_1.y_coord = row
+                        initialize_player = False
+                        
+                
+        
+        # Print board                
         for row in range(0, len(current_layout)):
             for item in range(0, len(current_layout[row])):
                 if row == player_1.y_coord and item == player_1.x_coord:
@@ -151,16 +183,20 @@ if __name__ == "__main__":
         x = input()
         if x == 'w':
             if player_1.y_coord > 0:
-                player_1.y_coord = player_1.y_coord - 1 
+                if not current_layout[player_1.y_coord-1][player_1.x_coord].barrier:
+                    player_1.y_coord = player_1.y_coord - 1 
         elif x == 's':
             if player_1.y_coord < final_maze.size:
-                player_1.y_coord += 1
+                if not current_layout[player_1.y_coord+1][player_1.x_coord].barrier:
+                    player_1.y_coord += 1
         elif x == 'a':
             if player_1.x_coord > 0:
-                player_1.x_coord = player_1.x_coord - 1
+                if not current_layout[player_1.y_coord][player_1.x_coord-1].barrier:
+                    player_1.x_coord = player_1.x_coord - 1
         elif x == 'd':
             if player_1.x_coord < final_maze.size:
-                player_1.x_coord += 1
+                if not current_layout[player_1.y_coord][player_1.x_coord+1].barrier:
+                    player_1.x_coord += 1
         elif x == 'q':
             break
         elif x == 'o':

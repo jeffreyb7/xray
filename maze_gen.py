@@ -1,3 +1,4 @@
+import copy
 import math
 import os
 import random
@@ -36,7 +37,8 @@ class Maze:
     def __init__(self, size):
         self.size = size
         self.current_level = None
-        self.levels = {}
+        self.rooms = {}
+        self.passages = {}
 
     # Render current layout
     def get_layout(self):
@@ -53,11 +55,15 @@ class Maze:
                 middle.append(Block('Wall'))
                 current_layout.append(middle)
      
-        for room in self.levels[self.current_level]:
+        for room in self.rooms[self.current_level]:
             for row in range(0, self.size):
                 if row >= room.y_min and row <= room.y_max:
                     for cell in range(room.x_min, room.x_max+1):
                         current_layout[row][cell] = Block('Room')
+
+        for passage in self.passages[self.current_level]:
+            for x in range(0, len(passage.x_seq)):
+                current_layout[passage.y_seq[x]][passage.x_seq[x]] = Block('Room')
         return current_layout
     
     def create_rooms(self):
@@ -77,16 +83,16 @@ class Maze:
             # Assign room
             new_x_bound = [x for x in range(new_room.x_min, new_room.x_max+1)]
             new_y_bound = [x for x in range(new_room.y_min, new_room.y_max+1)]
-            if not self.levels:
-                self.levels[0] = []
-                self.levels[0].append(new_room)       
+            if not self.rooms:
+                self.rooms[0] = []
+                self.rooms[0].append(new_room)       
             else:
                 room_added = False
-                for level in range(0, len(self.levels.keys())):
+                for level in range(0, len(self.rooms.keys())):
                     room_conflict = None
-                    for room in range(0, len(self.levels[level])):
-                        existing_x_bound = [x for x in range(self.levels[level][room].x_min, self.levels[level][room].x_max+1)]
-                        existing_y_bound = [x for x in range(self.levels[level][room].y_min, self.levels[level][room].y_max+1)]
+                    for room in range(0, len(self.rooms[level])):
+                        existing_x_bound = [x for x in range(self.rooms[level][room].x_min, self.rooms[level][room].x_max+1)]
+                        existing_y_bound = [x for x in range(self.rooms[level][room].y_min, self.rooms[level][room].y_max+1)]
                         x_test = [x for x in new_x_bound if x in existing_x_bound]
                         y_test = [x for x in new_y_bound if x in existing_y_bound]
                         if not x_test or not y_test:
@@ -95,29 +101,36 @@ class Maze:
                             room_conflict = room
                             break
                     if room_conflict is None:
-                        self.levels[level].append(new_room)
+                        self.rooms[level].append(new_room)
                         room_added = True
                         break
                 # If no spot is found for the room, make a new level
                 if not room_added:
-                    last_level = list(self.levels.keys())[-1]
+                    last_level = list(self.rooms.keys())[-1]
                     if room_conflict is None:
-                        self.levels[last_level].append(new_room)
+                        self.rooms[last_level].append(new_room)
                     else:
-                        self.levels[last_level+1] = []
-                        self.levels[last_level+1].append(new_room)
+                        self.rooms[last_level+1] = []
+                        self.rooms[last_level+1].append(new_room)
 
-        '''
-        def create_passages(self):
-            for level in self.levels.values():
-                connected_rooms = []
-                unconnected_rooms = []
-                for room in level:
-                    unconnected_rooms.append(room)
+        
+    def create_passages(self):
+        for level in range(0, len(self.rooms)):
+            self.passages[level] = []
+            unconnected_rooms = []
+            for room in self.rooms[level]:
+                unconnected_rooms.append(room)
+            room_from = None
+            print(unconnected_rooms)
+            if len(unconnected_rooms) > 1:
                 while len(unconnected_rooms) > 0:
-                    start_room = random.randrange(0, len(unconnected_rooms)) 
-       '''         
-
+                    if not room_from:
+                        room_from = unconnected_rooms.pop()
+                    room_to = unconnected_rooms.pop()
+                    self.passages[level].append(Passage((room_from.x_min, room_from.y_min), (room_to.x_min, room_to.y_min)))
+                    room_from = room_to
+                
+                     
 class Room:
 
     def __init__(self, length, x_min, y_min):
@@ -130,7 +143,36 @@ class Room:
 class Passage:
 
     def __init__(self, start_coords, end_coords):
-        pass
+        self.start_x = start_coords[0]
+        self.start_y = start_coords[1]
+        self.end_x = end_coords[0]
+        self.end_y = end_coords[1]
+        self.x_seq = []
+        self.y_seq = []        
+
+        y_diff = self.start_y - self.end_y
+        if y_diff != 0:
+            y_sign = int(y_diff / abs(y_diff))
+        x_diff = self.start_x - self.end_x
+        if x_diff != 0:
+            x_sign = int(x_diff / abs(x_diff))
+
+        x_magnitude = abs(x_diff)
+        y_magnitude = abs(y_diff)
+
+        x_position = self.start_x
+        while x_magnitude > 0:
+            self.x_seq.append(x_position)
+            self.y_seq.append(self.start_y)
+            x_magnitude = x_magnitude - 1
+            x_position = x_position - 1 * (x_sign)
+   
+        y_position = self.start_y
+        while y_magnitude > 0:
+            self.y_seq.append(y_position)
+            self.x_seq.append(self.end_x)
+            y_magnitude = y_magnitude - 1
+            y_position = y_position - 1 * (y_sign)
 
 
 class Player:
@@ -143,14 +185,13 @@ class Player:
 
 if __name__ == "__main__":
 
-    final_maze = Maze(60)
+    final_maze = Maze(30)
     final_maze.create_rooms()
+    final_maze.create_passages()
     final_maze.current_level = 0
 
-    
-
     player_1 = Player()
-    print(final_maze.levels)
+    print(final_maze.rooms)
 
     playing = True
     initialize_player = True
@@ -200,9 +241,9 @@ if __name__ == "__main__":
         elif x == 'q':
             break
         elif x == 'o':
-            if final_maze.current_level < len(final_maze.levels) - 1:
+            if final_maze.current_level < len(final_maze.rooms) - 1:
                 final_maze.current_level += 1
         elif x == 'p':
             if final_maze.current_level > 0:
                 final_maze.current_level = final_maze.current_level - 1
-    
+   

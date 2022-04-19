@@ -23,22 +23,35 @@ class Block:
             self.barrier = False
             self.symbol = '#'
 
-        if self.unit_type == 'Up':
+        if self.unit_type == 'Door':
             self.barrier = False
-            self.symbol = 'U'
+            self.symbol = 'D'
 
-        if self.unit_type == 'Down':
+        if self.unit_type == 'Treasure':
             self.barrier = False
-            self.symbol = 'D' 
+            self.symbol = '$' 
 
 
 class Maze:
 
     def __init__(self, size):
+        # Length of map side
         self.size = size
+        # Used during gameplay
         self.current_level = None
+        # Key is level number
+        # Value is list of room objects contained in level
         self.rooms = {}
+        # Key is level number
+        # Value is list of passage objects contained in level
         self.passages = {}
+        # Key is level number
+        # Value is list of door objects contained in level
+        self.doors = {}
+        # Key is level number
+        # Values is list of treasure objects.
+        # Order corresponds to room order in that level
+        self.treasures = {}
 
     # Render current layout
     def get_layout(self):
@@ -60,10 +73,20 @@ class Maze:
                 if row >= room.y_min and row <= room.y_max:
                     for cell in range(room.x_min, room.x_max+1):
                         current_layout[row][cell] = Block('Room')
-
         for passage in self.passages[self.current_level]:
             for x in range(0, len(passage.x_seq)):
                 current_layout[passage.y_seq[x]][passage.x_seq[x]] = Block('Room')
+        for treasure in self.treasures[self.current_level]:
+            if not treasure:
+                continue
+            else:
+                current_layout[treasure.y][treasure.x] = Block('Treasure')
+        if any(self.treasures[self.current_level]):
+            pass
+        else:
+            if self.current_level in self.doors.keys():
+                for door in self.doors[self.current_level]:
+                    current_layout[door.y][door.x] = Block('Door')
         return current_layout
     
     def create_rooms(self):
@@ -121,7 +144,6 @@ class Maze:
             for room in self.rooms[level]:
                 unconnected_rooms.append(room)
             room_from = None
-            print(unconnected_rooms)
             if len(unconnected_rooms) > 1:
                 while len(unconnected_rooms) > 0:
                     if not room_from:
@@ -130,7 +152,43 @@ class Maze:
                     self.passages[level].append(Passage((room_from.x_min, room_from.y_min), (room_to.x_min, room_to.y_min)))
                     room_from = room_to
                 
-                     
+    def create_doors(self):
+        for level in range(0, len(self.rooms)-2):
+            self.doors[level] = []
+            for room in self.rooms[level]:
+                room_x_bound = [x for x in range(room.x_min, room.x_max)]
+                room_y_bound = [x for x in range(room.y_min, room.y_max)]
+                for test_room in self.rooms[level+1]:
+                    test_x_bound = [x for x in range(test_room.x_min, test_room.x_max)]
+                    test_y_bound = [x for x in range(test_room.y_min, test_room.y_max)]
+                    x_test = [x for x in room_x_bound if x in test_x_bound]
+                    y_test = [y for y in room_y_bound if y in test_y_bound]
+                    if not x_test or not y_test:
+                        continue
+                    else:
+                        self.doors[level].append(Door(random.choice(x_test), random.choice(y_test)))
+                         
+    def create_treasures(self):
+        for level in range(0, len(self.rooms)):
+            self.treasures[level] = []
+            for room in range(0, len(self.rooms[level])):
+                x_bound = [x for x in range(self.rooms[level][room].x_min, self.rooms[level][room].x_max)]
+                y_bound = [y for y in range(self.rooms[level][room].y_min, self.rooms[level][room].y_max)]
+                if level in self.doors.keys():
+                    choosing_treasure_location = True
+                    while choosing_treasure_location:
+                        treasure_x = random.choice(x_bound)
+                        treasure_y = random.choice(y_bound)
+                        for door in self.doors[level]:
+                            if door.x == treasure_x and door.y == treasure_y:
+                                continue
+                        else:
+                            choosing_treasure_location = False
+                    self.treasures[level].append(Treasure(treasure_x, treasure_y))
+                else:
+                    treasure_x = random.choice(x_bound)
+                    treasure_y = random.choice(y_bound)
+
 class Room:
 
     def __init__(self, length, x_min, y_min):
@@ -139,6 +197,18 @@ class Room:
         self.x_max = self.x_min + self.side_length
         self.y_min = y_min
         self.y_max = self.y_min + self.side_length
+
+class Door:
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+class Treasure:
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 
 class Passage:
 
@@ -179,22 +249,23 @@ class Player:
     
     def __init__(self):
         self.symbol = 'O'
-        self.x_coord = None
-        self.y_coord = None
-
+        self.x = None
+        self.y = None
 
 if __name__ == "__main__":
 
     final_maze = Maze(30)
     final_maze.create_rooms()
     final_maze.create_passages()
+    final_maze.create_doors()
+    final_maze.create_treasures()
     final_maze.current_level = 0
 
     player_1 = Player()
-    print(final_maze.rooms)
 
     playing = True
     initialize_player = True
+    initialize_enemy = True
     while playing:
         
         os.system('clear')
@@ -206,16 +277,14 @@ if __name__ == "__main__":
             for row in range(0, len(current_layout)):
                 for item in range(0, len(current_layout[row])):
                     if current_layout[row][item].symbol == '#':
-                        player_1.x_coord = item
-                        player_1.y_coord = row
+                        player_1.x = item
+                        player_1.y = row
                         initialize_player = False
-                        
-                
         
         # Print board                
         for row in range(0, len(current_layout)):
             for item in range(0, len(current_layout[row])):
-                if row == player_1.y_coord and item == player_1.x_coord:
+                if row == player_1.y and item == player_1.x:
                     print(player_1.symbol, end= ' ')
                 else:
                     print(current_layout[row][item].symbol, end=' ')
@@ -223,21 +292,21 @@ if __name__ == "__main__":
 
         x = input()
         if x == 'w':
-            if player_1.y_coord > 0:
-                if not current_layout[player_1.y_coord-1][player_1.x_coord].barrier:
-                    player_1.y_coord = player_1.y_coord - 1 
+            if player_1.y > 0:
+                if not current_layout[player_1.y-1][player_1.x].barrier:
+                    player_1.y = player_1.y - 1 
         elif x == 's':
-            if player_1.y_coord < final_maze.size:
-                if not current_layout[player_1.y_coord+1][player_1.x_coord].barrier:
-                    player_1.y_coord += 1
+            if player_1.y < final_maze.size:
+                if not current_layout[player_1.y+1][player_1.x].barrier:
+                    player_1.y += 1
         elif x == 'a':
-            if player_1.x_coord > 0:
-                if not current_layout[player_1.y_coord][player_1.x_coord-1].barrier:
-                    player_1.x_coord = player_1.x_coord - 1
+            if player_1.x > 0:
+                if not current_layout[player_1.y][player_1.x-1].barrier:
+                    player_1.x = player_1.x - 1
         elif x == 'd':
-            if player_1.x_coord < final_maze.size:
-                if not current_layout[player_1.y_coord][player_1.x_coord+1].barrier:
-                    player_1.x_coord += 1
+            if player_1.x < final_maze.size:
+                if not current_layout[player_1.y][player_1.x+1].barrier:
+                    player_1.x += 1
         elif x == 'q':
             break
         elif x == 'o':
@@ -246,4 +315,11 @@ if __name__ == "__main__":
         elif x == 'p':
             if final_maze.current_level > 0:
                 final_maze.current_level = final_maze.current_level - 1
-   
+        if current_layout[player_1.y][player_1.x].unit_type == 'Treasure':
+            for treasure in range(0, len(final_maze.treasures[final_maze.current_level])):
+                if not final_maze.treasures[final_maze.current_level][treasure]:
+                    continue
+                if final_maze.treasures[final_maze.current_level][treasure].x == player_1.x and final_maze.treasures[final_maze.current_level][treasure].y == player_1.y:
+                    final_maze.treasures[final_maze.current_level][treasure] = None
+        if current_layout[player_1.y][player_1.x].unit_type == 'Door':
+            final_maze.current_level += 1
